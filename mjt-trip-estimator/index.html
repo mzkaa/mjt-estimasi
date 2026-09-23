@@ -48,6 +48,25 @@
         </form>
       </section>
 
+      <section class="card map-card">
+        <button type="button" id="map-toggle" class="map-toggle">
+          <span>🗺️ Peta Semua Rute &amp; Halte</span>
+          <span class="map-toggle-arrow" id="map-toggle-arrow">▾</span>
+        </button>
+
+        <div id="map-panel" class="map-panel" hidden>
+          <p class="map-hint">Bingung naik dari mana? Coba cari nama lokasi/kampus kamu di sini untuk lihat halte terdekat.</p>
+
+          <div class="select-wrap search-wrap">
+            <span class="select-icon">🔍</span>
+            <input type="text" id="landmark-search" placeholder="Contoh: Telkom University, ITB, stasiun..." autocomplete="off" />
+          </div>
+          <div id="landmark-result" class="landmark-result"></div>
+
+          <div id="corridor-list" class="corridor-list"></div>
+        </div>
+      </section>
+
       <section id="result" class="result hidden">
 
         <section class="card">

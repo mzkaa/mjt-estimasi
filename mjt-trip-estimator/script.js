@@ -154,6 +154,25 @@ const locations = [
   { label: "Terminal Majalaya", stop: "Terminal Majalaya" },
 ];
 
+// Petunjuk lokasi/landmark populer yang bukan nama halte persis di peta,
+// dipetakan ke halte MJT terdekat. Bantu user yang tidak hafal nama halte.
+const landmarkHints = [
+  { keywords: ["telkom university", "tel-u", "telu", "telkom u"], stop: "Buah Batu", note: "Telkom University berada di kawasan Buah Batu/Sukapura." },
+  { keywords: ["itb", "institut teknologi bandung", "ganesha"], stop: "ITB Ganesha", note: "ITB kampus Ganesha, dekat Lapangan Gasibu." },
+  { keywords: ["unpad dipatiukur", "unpad bandung", "unikom"], stop: "UNPAD Dipatiukur", note: "Kawasan Dipatiukur/Dago bawah." },
+  { keywords: ["unpad jatinangor", "ikopin", "jatinangor"], stop: "UNPAD Jatinangor", note: "Kawasan kampus Jatinangor." },
+  { keywords: ["gasibu", "monju", "monumen juang"], stop: "Lapangan Gasibu", note: "Area Lapangan Gasibu/Gedung Sate." },
+  { keywords: ["bec", "electronic centre", "electronic center"], stop: "Bandung Electronic Centre (BEC)", note: "BEC di Jl. Purnawarman." },
+  { keywords: ["stasiun bandung", "kereta bandung"], stop: "Stasiun Bandung", note: "Stasiun Bandung (Hall besar/kecil)." },
+  { keywords: ["stasiun padalarang", "kereta padalarang"], stop: "Stasiun Padalarang", note: "Stasiun Padalarang, arah KCJB/lokal." },
+  { keywords: ["balai kota", "balaikota"], stop: "Balaikota", note: "Kawasan Balai Kota Bandung / Taman Sejarah." },
+  { keywords: ["alun alun", "alun-alun bandung", "masjid raya bandung"], stop: "Alun-alun Bandung", note: "Alun-alun & Masjid Raya Bandung." },
+  { keywords: ["baltos", "bandung trade center", "btc dago"], stop: "Baltos", note: "Bandung Trade Center, Jl. Ir. H. Djuanda (Dago)." },
+  { keywords: ["cimahi"], stop: "BRI Cimahi", note: "Kawasan pusat Kota Cimahi." },
+  { keywords: ["soreang"], stop: "Hotel Soreang", note: "Pusat Kota Soreang." },
+  { keywords: ["majalaya"], stop: "Terminal Majalaya", note: "Pusat Kota Majalaya." },
+];
+
 /* =========================================================
    Routing engine (prototype-level, bukan real-time)
    ========================================================= */
@@ -505,3 +524,99 @@ function renderDuration(trip) {
     <span>± ${trip.duration}</span>
   `;
 }
+
+/* =========================================================
+   Peta Semua Rute + Pencarian Landmark
+   ========================================================= */
+
+function renderCorridorList() {
+  const el = document.getElementById("corridor-list");
+  el.innerHTML = "";
+
+  corridors.forEach((c) => {
+    const details = document.createElement("details");
+    details.className = "corridor-item";
+
+    const summary = document.createElement("summary");
+    summary.style.background = CORRIDOR_COLORS[c.code];
+    summary.innerHTML = `
+      <span>${CORRIDOR_ICONS[c.code]} ${c.code}</span>
+      <span class="cd-name">${c.name}</span>
+      <span class="cd-caret">▾</span>
+    `;
+    details.appendChild(summary);
+
+    const stopsDiv = document.createElement("div");
+    stopsDiv.className = "corridor-stops";
+    stopsDiv.innerHTML = c.stops.map((s) => `<div class="cs-item">${s}</div>`).join("");
+    details.appendChild(stopsDiv);
+
+    el.appendChild(details);
+  });
+}
+
+function searchLandmark(query) {
+  const q = query.trim().toLowerCase();
+  const resultEl = document.getElementById("landmark-result");
+  resultEl.innerHTML = "";
+  if (!q) return;
+
+  const matches = [];
+  const seenStops = new Set();
+
+  // 1) cocokkan dulu ke daftar landmark populer
+  landmarkHints.forEach((h) => {
+    if (h.keywords.some((k) => k.includes(q) || q.includes(k))) {
+      if (!seenStops.has(h.stop)) {
+        seenStops.add(h.stop);
+        matches.push({ stop: h.stop, note: h.note });
+      }
+    }
+  });
+
+  // 2) lalu cocokkan langsung ke nama halte pada semua koridor
+  const allStops = [...new Set(corridors.flatMap((c) => c.stops))];
+  allStops.forEach((stop) => {
+    if (stop.toLowerCase().includes(q) && !seenStops.has(stop)) {
+      seenStops.add(stop);
+      matches.push({ stop, note: null });
+    }
+  });
+
+  if (matches.length === 0) {
+    resultEl.innerHTML = `<div class="landmark-empty">Tidak ditemukan. Coba lihat daftar rute di bawah untuk cari halte terdekat.</div>`;
+    return;
+  }
+
+  matches.slice(0, 6).forEach((m) => {
+    const servingCorridors = corridorsContaining(m.stop);
+    servingCorridors.forEach((c) => {
+      const div = document.createElement("div");
+      div.className = "landmark-match";
+      div.innerHTML = `
+        <span class="lm-badge" style="background:${CORRIDOR_COLORS[c.code]}">${c.code}</span>
+        <span class="lm-text">
+          Naik di halte <span class="lm-stop">${m.stop}</span> (${c.name})
+          ${m.note ? `<span class="lm-note">${m.note}</span>` : ""}
+        </span>
+      `;
+      resultEl.appendChild(div);
+    });
+  });
+}
+
+document.getElementById("map-toggle").addEventListener("click", () => {
+  const panel = document.getElementById("map-panel");
+  const arrow = document.getElementById("map-toggle-arrow");
+  const willOpen = panel.hidden;
+  panel.hidden = !willOpen;
+  arrow.classList.toggle("open", willOpen);
+  if (willOpen && !panel.dataset.rendered) {
+    renderCorridorList();
+    panel.dataset.rendered = "1";
+  }
+});
+
+document.getElementById("landmark-search").addEventListener("input", (e) => {
+  searchLandmark(e.target.value);
+});
