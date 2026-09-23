@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MJT Trip Estimator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-icon">🚌</div>
+      <h1>MJT Trip Estimator</h1>
+      <p class="subtitle">Perkirakan perjalananmu dengan Metro Jabar Trans</p>
+    </header>
+
+    <main>
+      <section class="card form-card">
+        <form id="trip-form">
+          <div class="field">
+            <label for="from-select">DARI</label>
+            <div class="select-wrap">
+              <span class="select-icon">📍</span>
+              <select id="from-select" required>
+                <option value="" disabled selected>Pilih lokasi awal</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="swap-row">
+            <button type="button" id="swap-btn" title="Tukar lokasi" aria-label="Tukar lokasi">⇅</button>
+          </div>
+
+          <div class="field">
+            <label for="to-select">KE</label>
+            <div class="select-wrap">
+              <span class="select-icon">🎯</span>
+              <select id="to-select" required>
+                <option value="" disabled selected>Pilih tujuan</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-primary">Lihat Estimasi <span class="arrow">→</span></button>
+        </form>
+      </section>
+
+      <section id="result" class="result hidden">
+
+        <section class="card">
+          <p class="eyebrow">PERJALANAN KAMU</p>
+          <div class="trip-heading">
+            <span id="result-from"></span>
+            <span class="trip-arrow">→</span>
+            <span id="result-to"></span>
+          </div>
+
+          <div class="summary-strip" id="summary-strip">
+            <div class="summary-item">
+              <span class="summary-icon">⏱</span>
+              <span id="summary-time"></span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-icon">🔄</span>
+              <span id="summary-transfer"></span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-icon">💰</span>
+              <span id="summary-fare"></span>
+            </div>
+          </div>
+        </section>
+
+        <section class="card" id="not-available-card" hidden>
+          <p class="not-available">Rute untuk pilihan ini belum tersedia di prototype.</p>
+        </section>
+
+        <section class="card timeline-card" id="timeline-card">
+          <p class="eyebrow">SIMULASI PERJALANAN</p>
+          <div class="timeline" id="timeline"></div>
+        </section>
+
+        <section class="card detail-card" id="detail-card">
+          <p class="eyebrow">DETAIL PERJALANAN</p>
+          <div id="detail-list"></div>
+        </section>
+
+        <section class="card" id="duration-card">
+          <p class="eyebrow">ESTIMASI WAKTU</p>
+          <div id="duration-list" class="duration-list"></div>
+          <div class="duration-total" id="duration-total"></div>
+          <p class="disclaimer">Estimasi dapat berubah tergantung kondisi lalu lintas, waktu tunggu bus, dan kondisi operasional.</p>
+        </section>
+
+        <section class="card" id="fare-card">
+          <p class="eyebrow">BIAYA PERJALANAN</p>
+          <div class="fare-row">
+            <div class="fare-amount">Rp4.900</div>
+            <div class="fare-label">Tarif umum</div>
+          </div>
+          <div class="fare-row">
+            <div class="fare-amount fare-amount-secondary">Rp2.000</div>
+            <div class="fare-label">Pelajar/mahasiswa terdaftar*</div>
+          </div>
+          <p class="disclaimer">* Mengikuti ketentuan tarif yang berlaku.</p>
+        </section>
+
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Prototype tidak resmi &middot; bukan aplikasi resmi Metro Jabar Trans</p>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
