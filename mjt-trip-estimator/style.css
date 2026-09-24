@@ -628,6 +628,17 @@ html, body {
 
 .corridor-stops .cs-item:last-child { border-left-color: transparent; }
 
+.cs-dir-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin: 14px 0 8px;
+}
+
+.cs-dir-label:first-child { margin-top: 0; }
+
 .footer {
   text-align: center;
   margin-top: 24px;

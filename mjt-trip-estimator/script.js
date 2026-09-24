@@ -1,10 +1,16 @@
 /* =========================================================
    MJT Trip Estimator — data & logic
    Referensi: Peta Transportasi Massal Cekungan Bandung, April 2026
-   Struktur data dibuat mudah diedit/ditambah.
+   (versi skematik per-koridor, sisi A & sisi B).
+
+   Setiap koridor MJT sebenarnya jalan satu arah (loop) lewat jalan
+   yang kadang berbeda antara arah pergi (sisi A) & arah pulang
+   (sisi B) — makanya nama haltenya juga sering beda walau berdekatan.
+   Struktur data di bawah menyimpan KEDUA arah per koridor apa adanya
+   sesuai peta, supaya semua halte & arahnya kelihatan jelas, dan
+   mesin estimasi rute mencari jalur lewat kedua arah tersebut.
    ========================================================= */
 
-// Warna tiap koridor
 const CORRIDOR_COLORS = {
   K1: "#1FA35A",
   K2: "#E63946",
@@ -12,8 +18,6 @@ const CORRIDOR_COLORS = {
   K4: "#2E5BFF",
   K5: "#E91E8C",
   K6: "#F2843C",
-  FD1: "#1FA35A",
-  FD2: "#E63946",
 };
 
 const CORRIDOR_ICONS = {
@@ -25,97 +29,201 @@ const CORRIDOR_ICONS = {
   K6: "🟠",
 };
 
-// Data koridor: setiap koridor punya urutan halte (satu arah acuan).
-// Menambah koridor / halte baru cukup menambah entri di sini.
-const corridors = [
+// corridorDefs: satu entri per koridor, berisi DUA arah (A & B) persis
+// seperti dua kolom pada peta skematik. "Baltos" & "ITB Ganesha" adalah
+// satu-satunya titik yang tidak tercetak persis di peta — didekatkan ke
+// posisi realistisnya di koridor K5 dan ditandai di UI.
+const corridorDefs = [
   {
     code: "K1",
-    name: "Leuwipanjang → Soreang",
-    stops: [
-      "Terminal Leuwipanjang", "Leuwipanjang Soekarno Hatta", "Pasar Induk Caringin",
-      "Sumbersari Junction", "Hotel Grand Pasundan", "Bumi Kopo Kencana",
-      "Mall Festival Citylink", "Simpang Pasirkoja", "SPBU Pasir Koja",
-      "Hotel Soreang", "Mall Pelayanan Publik", "Plaza Pemkab Bandung",
-      "Simpang Desa Soreang", "Pasar Ikan Modern", "RSUD Otto Iskandar Dinata",
-      "SAMSAT Soreang", "Geo Dipa Energi", "Pengendapan Bus Soreang",
+    corridorName: "Leuwipanjang - Soreang",
+    directions: [
+      {
+        dir: "A",
+        label: "Leuwipanjang → Soreang",
+        stops: [
+          "Terminal Leuwipanjang", "Hotel Grand Pasundan", "Bumi Kopo Kencana",
+          "Mall Festival Citylink", "Simpang Pasirkoja", "SPBU Pasir Koja",
+          "Hotel Soreang", "Mall Pelayanan Publik", "Plaza Pemkab Bandung",
+          "Simpang Desa Soreang", "Pasar Ikan Modern", "RSUD Otto Iskandar Dinata",
+          "SAMSAT Soreang", "Geo Dipa Energi", "Pengendapan Bus Soreang",
+        ],
+      },
+      {
+        dir: "B",
+        label: "Soreang → Leuwipanjang",
+        stops: [
+          "Pengendapan Bus Soreang", "Hotel Soreang", "Sumbersari Junction",
+          "Pasar Induk Caringin", "Leuwipanjang Soekarno Hatta", "Terminal Leuwipanjang",
+        ],
+      },
     ],
   },
   {
     code: "K2",
-    name: "Kota Baru Parahyangan → Alun-alun Bandung",
-    stops: [
-      "Kota Baru Parahyangan", "Parahyangan Selatan", "Wahoo Waterworld",
-      "Parahyangan Timur", "Parahyangan Utara", "Tatar Wangsakerta",
-      "Bale Pare", "Stasiun Padalarang", "STEI LPPM", "RS Karisma Cimareme",
-      "RS IMC", "Masjid Ar-Ridwan", "Padasuka Indah", "Rancabelut",
-      "PLN Cisangkan", "Buana", "Gedung 4", "SMPN 6", "BRI Cimahi",
-      "RSUD Cibabat", "RS Mitra Kasih", "Dinas Sosial", "Cilember",
-      "Jalan Budi", "SMAN 13", "Kebon Kopi", "Paledang", "Rajawali Barat",
-      "Plaza Telkom Rajawali", "Rajawali 1", "Dungus Cariang", "Sudirman 3",
-      "Optik Krida", "SMA Trinitas", "Kemenag Kanwil Jabar", "RS Kebon Jati",
-      "Toko Ambon", "SMA Pasundan", "Mayapada Tower", "Perintis Kemerdekaan",
-      "GKI Anugerah", "Lembong", "KEB Hana Bank", "Alun-alun Bandung",
+    corridorName: "Kota Baru Parahyangan - Alun-alun Bandung",
+    directions: [
+      {
+        dir: "A",
+        label: "Kota Baru Parahyangan → Alun-alun Bandung",
+        stops: [
+          "Kota Baru Parahyangan", "Wahoo Waterworld", "Parahyangan Timur",
+          "Parahyangan Timur 2", "Parahyangan Utara", "Tatar Wangsakerta",
+          "Bale Pare", "Stasiun Padalarang", "STEI LPPM", "RS Karisma Cimareme",
+          "RS IMC", "Masjid Ar-Ridwan", "Padasuka Indah", "Rancabelut",
+          "PLN Cisangkan", "BRI Cimahi", "RSUD Cibabat", "Dinas Sosial",
+          "Jalan Budi", "SMAN 13", "Paledang", "Rajawali Barat",
+          "Plaza Telkom Rajawali", "Rajawali 1", "Dungus Cariang", "SMA Trinitas",
+          "RS Kebon Jati", "SMA Pasundan", "Perintis Kemerdekaan", "Lembong",
+          "Alun-alun Bandung",
+        ],
+      },
+      {
+        dir: "B",
+        label: "Alun-alun Bandung → Kota Baru Parahyangan",
+        stops: [
+          "Alun-alun Bandung", "KEB Hana Bank", "GKI Anugerah", "Mayapada Tower",
+          "Toko Ambon", "Kemenag Kanwil Jabar", "Optik Krida", "Sudirman 3",
+          "Kebon Kopi", "SMAN 13", "Cilember", "RS Mitra Kasih", "RSUD Cibabat",
+          "SMPN 6", "Gedung 4", "Buana", "PLN Cisangkan", "Rancabelut",
+          "Padasuka Indah", "Masjid Ar-Ridwan", "RS IMC", "RS Karisma Cimareme",
+          "STEI LPPM", "Bale Pare", "Tatar Wangsakerta", "Parahyangan Utara",
+          "Parahyangan Selatan", "Kota Baru Parahyangan",
+        ],
+      },
     ],
   },
   {
     code: "K3",
-    name: "Baleendah → BEC",
-    stops: [
-      "Baleendah", "RS Al Ihsan", "Kejari Bale Bandung", "Apotek K24",
-      "Masjid Jami Baitul Huda", "Alfamart SPBU Bojongsoang", "Griya Bandung Asri",
-      "AHASS", "Podomoro", "Permata Buah Batu", "Transmart Buah Batu",
-      "Puskesmas Kujangsari", "Bluebird", "Pasar Kordon", "Swadharma BNI",
-      "Buah Batu", "Bangunan Mart", "LPKIA", "PT LEN Industri",
-      "PLN UP3 Bandung", "Madurasa Tengah", "PT INTI", "Lapang Tegallega",
-      "Simpang Ijan", "Toko Mas ABC", "Alun-alun Bandung", "Banceuy",
-      "Stasiun Timur", "Stasiun Bandung", "SMAN 6 Bandung", "SDN Pajajaran",
-      "STHB", "Bandung Electronic Centre (BEC)", "Santa Angela (Merdeka)",
-      "Museum Kota Bandung",
+    corridorName: "Baleendah - BEC",
+    directions: [
+      {
+        dir: "A",
+        label: "Baleendah → BEC",
+        stops: [
+          "Baleendah", "Masjid Al Amanah", "Matahari Land", "Masjid Jami Baitul Huda",
+          "Bubur Ayam Haji Amid", "Borma Bojongsoang", "SD Negeri Lengkong",
+          "Puskesmas Bojongsoang", "Bluebird", "Pasar Kordon", "JAPNAS",
+          "PT Medal Sekarwangi", "Bangunan Mart", "LPKIA", "PT LEN Industri",
+          "PLN UP3 Bandung", "Muhammad Toha", "PT INTI", "Sekolah Ganesha",
+          "Taman Tegallega", "Sekolah Moh Toha", "ITC Kebon Kelapa",
+          "Grand Yogya Kepatihan", "Alun-alun Bandung", "Banceuy", "Stasiun Timur",
+          "Stasiun Bandung", "SMAN 6 Bandung", "SDN Pajajaran", "STHB",
+          "Bandung Electronic Centre (BEC)",
+        ],
+      },
+      {
+        dir: "B",
+        label: "BEC/Merdeka → Baleendah",
+        stops: [
+          "Museum Kota Bandung", "Santa Angela (Merdeka)", "Alun-alun Bandung",
+          "Toko Mas ABC", "Simpang Ijan", "Lapang Tegallega", "PT INTI",
+          "Madurasa Tengah", "PLN UP3 Bandung", "PT LEN Industri", "LPKIA",
+          "Bangunan Mart", "Buah Batu", "Swadharma BNI", "Pasar Kordon",
+          "Bluebird", "Puskesmas Kujangsari", "Transmart Buah Batu",
+          "Permata Buah Batu", "Podomoro", "AHASS", "Griya Bandung Asri",
+          "Alfamart SPBU Bojongsoang", "Masjid Jami Baitul Huda", "Apotek K24",
+          "Kejari Bale Bandung", "RS Al Ihsan", "Baleendah",
+        ],
+      },
     ],
   },
   {
     code: "K4",
-    name: "Leuwipanjang → Dago",
-    stops: [
-      "Terminal Leuwipanjang", "RS Immanuel", "Simpang Moh Toha",
-      "Taman Tegallega", "Pasar Tegallega", "Pintu Keluar Terminal Tegalega",
-      "Ibu Inggit Garnasih", "RSIA Astana Anyar", "Dalem Kaum",
-      "Stasiun Bandung Pintu Selatan", "Pasar Baru", "Balaikota",
-      "Bank Indonesia", "Santa Angela (Merdeka)", "Bandung Indah Plaza",
-      "Bandung Electronic Centre (BEC)", "Hotel The-One-O-One", "Taman Radio",
-      "Kartika Sari", "RS Santo Borromeus", "Masjid Baiturrahman",
-      "UNPAD Dipatiukur",
+    corridorName: "Leuwipanjang - Dago",
+    directions: [
+      {
+        dir: "A",
+        label: "Leuwipanjang → Dago (UNPAD Dipatiukur)",
+        stops: [
+          "Terminal Leuwipanjang", "RS Immanuel", "Taman Tegallega",
+          "Pintu Keluar Terminal Tegalega", "RSIA Astana Anyar",
+          "Stasiun Bandung Pintu Selatan", "Balaikota", "Bandung Electronic Centre (BEC)",
+          "Hotel The-One-O-One", "Taman Radio", "Kartika Sari",
+          "RS Santo Borromeus", "Masjid Baiturrahman", "UNPAD Dipatiukur",
+        ],
+      },
+      {
+        dir: "B",
+        label: "Dago (UNPAD Dipatiukur) → Leuwipanjang",
+        stops: [
+          "UNPAD Dipatiukur", "RS Santo Borromeus", "Kartika Sari", "Taman Radio",
+          "Hotel The-One-O-One", "Bandung Indah Plaza", "Santa Angela (Merdeka)",
+          "Bank Indonesia", "Pasar Baru", "Dalem Kaum", "Ibu Inggit Garnasih",
+          "Pasar Tegallega", "Simpang Moh Toha", "RS Immanuel", "Terminal Leuwipanjang",
+        ],
+      },
     ],
   },
   {
     code: "K5",
-    name: "Unpad Jatinangor → Unpad Dipatiukur",
-    stops: [
-      "UNPAD Jatinangor", "Jatinangor Town Square", "IPDN", "Cileunyi",
-      "Simpang By Pass Soetta", "PT INTI", "Hotel Horison",
-      "Bandung Creative Hub", "Hotel Grand Tebu", "SPBU Ahmad Yani",
-      "Taman Pramuka", "Baltos", "Lapangan Supratman", "Pusdai",
-      "Lapangan Gasibu", "ITB Ganesha", "Panatayuda", "UNPAD Dipatiukur",
+    corridorName: "Dipatiukur - Jatinangor",
+    directions: [
+      {
+        dir: "A",
+        label: "UNPAD Dipatiukur → UNPAD Jatinangor",
+        stops: [
+          "UNPAD Dipatiukur", "Panatayuda", "ITB Ganesha", "Lapangan Gasibu",
+          "PUSDAI", "Lapangan Supratman", "Baltos", "Taman Pramuka",
+          "Hotel Grand Tebu", "Bandung Creative Hub", "Hotel Horison", "PT INTI",
+          "Simpang By Pass Soetta", "SPBU Moh Toha", "Cileunyi", "IPDN",
+          "Jatinangor Town Square", "UNPAD Jatinangor",
+        ],
+      },
+      {
+        dir: "B",
+        label: "UNPAD Jatinangor → UNPAD Dipatiukur",
+        stops: [
+          "UNPAD Jatinangor", "IPDN", "Cileunyi", "Tatang Sumantri",
+          "Simpang By Pass Soetta", "PT INTI", "Hotel Horison",
+          "Bandung Creative Hub", "SPBU Ahmad Yani", "Baltos", "Lapangan Supratman",
+          "PUSDAI", "Lapangan Gasibu", "ITB Ganesha", "Panatayuda", "UNPAD Dipatiukur",
+        ],
+      },
     ],
   },
   {
     code: "K6",
-    name: "Leuwipanjang → Majalaya",
-    stops: [
-      "Terminal Leuwipanjang", "RS Immanuel", "Biddokes",
-      "TK Kemala Bhayangkari 49", "SDN Babakan Tarogong", "Muara",
-      "PT INTI", "Palasari", "Zipur Dayeuhkolot", "Borma Bojongsoang",
-      "Griya Bandung Asri", "Pasar Baleendah", "Bumi Siliwangi",
-      "Giri Harja Jelekong", "Terminal Ciparay", "Borma Majalaya",
-      "Terminal Majalaya",
+    corridorName: "Leuwipanjang - Majalaya",
+    directions: [
+      {
+        dir: "A",
+        label: "Leuwipanjang → Majalaya",
+        stops: [
+          "Terminal Leuwipanjang", "SDN Babakan Tarogong", "RS Immanuel", "Muara",
+          "PT INTI", "Palasari Radio", "Zipur Dayeuhkolot", "Griya Bandung Asri",
+          "Pasar Baleendah", "Bumi Siliwangi", "Terminal Ciparay", "Borma Majalaya",
+          "Terminal Majalaya",
+        ],
+      },
+      {
+        dir: "B",
+        label: "Majalaya → Leuwipanjang",
+        stops: [
+          "Terminal Majalaya", "Terminal Ciparay", "Giri Harja Jelekong",
+          "Pasar Baleendah", "Borma Bojongsoang", "Palasari Ceres",
+          "TK Kemala Bhayangkari 49", "Biddokes", "Terminal Leuwipanjang",
+        ],
+      },
     ],
   },
 ];
 
-// Lokasi yang bisa dipilih user -> mengacu ke nama halte pada koridor di atas.
-// Semua nama diambil dari Peta Transportasi Massal Cekungan Bandung, April 2026,
-// kecuali "Baltos" dan "ITB Ganesha" yang ditandai sebagai lokasi perkiraan
-// (tidak tercetak persis di peta, didekatkan ke halte terdekat pada koridor K5).
+// "lines" = satu entri per ARAH per koridor (12 total) — ini yang dipakai
+// mesin pencari rute & peta, supaya semua sisi/arah ikut tercakup.
+const lines = corridorDefs.flatMap((c) =>
+  c.directions.map((d) => ({
+    code: c.code,
+    corridorName: c.corridorName,
+    color: CORRIDOR_COLORS[c.code],
+    icon: CORRIDOR_ICONS[c.code],
+    dir: d.dir,
+    label: d.label,
+    stops: d.stops,
+  }))
+);
+
+// Lokasi yang bisa dipilih user pada form -> mengacu ke nama halte di atas.
 const locations = [
   { label: "Terminal Leuwipanjang", stop: "Terminal Leuwipanjang" },
   { label: "Terminal Soreang", stop: "Pengendapan Bus Soreang" },
@@ -141,7 +249,7 @@ const locations = [
   { label: "Kartika Sari", stop: "Kartika Sari" },
   { label: "Dipatiukur", stop: "UNPAD Dipatiukur" },
   { label: "Lapangan Gasibu", stop: "Lapangan Gasibu" },
-  { label: "Pusdai", stop: "Pusdai" },
+  { label: "Pusdai", stop: "PUSDAI" },
   { label: "ITB Ganesha", stop: "ITB Ganesha" },
   { label: "Baltos", stop: "Baltos" },
   { label: "Bandung Creative Hub", stop: "Bandung Creative Hub" },
@@ -157,7 +265,7 @@ const locations = [
 // Petunjuk lokasi/landmark populer yang bukan nama halte persis di peta,
 // dipetakan ke halte MJT terdekat. Bantu user yang tidak hafal nama halte.
 const landmarkHints = [
-  { keywords: ["telkom university", "tel-u", "telu", "telkom u"], stop: "Buah Batu", note: "Telkom University berada di kawasan Buah Batu/Sukapura." },
+  { keywords: ["telkom university", "tel-u", "telu", "telkom u"], stop: "Buah Batu", note: "Telkom University berada di kawasan Buah Batu/Sukapura (dilewati K3 arah BEC → Baleendah)." },
   { keywords: ["itb", "institut teknologi bandung", "ganesha"], stop: "ITB Ganesha", note: "ITB kampus Ganesha, dekat Lapangan Gasibu." },
   { keywords: ["unpad dipatiukur", "unpad bandung", "unikom"], stop: "UNPAD Dipatiukur", note: "Kawasan Dipatiukur/Dago bawah." },
   { keywords: ["unpad jatinangor", "ikopin", "jatinangor"], stop: "UNPAD Jatinangor", note: "Kawasan kampus Jatinangor." },
@@ -167,7 +275,7 @@ const landmarkHints = [
   { keywords: ["stasiun padalarang", "kereta padalarang"], stop: "Stasiun Padalarang", note: "Stasiun Padalarang, arah KCJB/lokal." },
   { keywords: ["balai kota", "balaikota"], stop: "Balaikota", note: "Kawasan Balai Kota Bandung / Taman Sejarah." },
   { keywords: ["alun alun", "alun-alun bandung", "masjid raya bandung"], stop: "Alun-alun Bandung", note: "Alun-alun & Masjid Raya Bandung." },
-  { keywords: ["baltos", "bandung trade center", "btc dago"], stop: "Baltos", note: "Bandung Trade Center, Jl. Ir. H. Djuanda (Dago)." },
+  { keywords: ["baltos", "bandung trade center", "btc dago"], stop: "Baltos", note: "Bandung Trade Center, Jl. Ir. H. Djuanda (Dago) — posisi perkiraan." },
   { keywords: ["cimahi"], stop: "BRI Cimahi", note: "Kawasan pusat Kota Cimahi." },
   { keywords: ["soreang"], stop: "Hotel Soreang", note: "Pusat Kota Soreang." },
   { keywords: ["majalaya"], stop: "Terminal Majalaya", note: "Pusat Kota Majalaya." },
@@ -175,60 +283,57 @@ const landmarkHints = [
 
 /* =========================================================
    Routing engine (prototype-level, bukan real-time)
+   Mencari jalur lewat 12 "lines" (6 koridor x 2 arah), maksimal
+   2 kali transit, tanpa memakai dua arah dari koridor yang sama
+   berturut-turut (itu bukan transit sungguhan, cuma balik arah).
    ========================================================= */
 
-function corridorsContaining(stopName) {
-  return corridors.filter((c) => c.stops.includes(stopName));
+function linesContaining(stopName) {
+  return lines.filter((l) => l.stops.includes(stopName));
 }
 
-function sharedStop(corridorA, corridorB) {
-  return corridorA.stops.find((s) => corridorB.stops.includes(s));
-}
+// Setiap "line" cuma bisa dijalani MAJU (sesuai urutan halte tercetak di
+// peta) — nggak boleh naik bus lalu "mundur" ke halte sebelumnya.
+// BFS di bawah menjelajah per-halte-maju supaya arah selalu benar, dan
+// berhenti begitu ketemu jalur dengan jumlah transit paling sedikit.
+function findLinePath(fromStop, toStop) {
+  const startLines = linesContaining(fromStop);
+  if (startLines.length === 0) return null;
 
-// BFS sederhana antar koridor (maks 2 transit) via halte yang beririsan.
-function findCorridorPath(fromStop, toStop) {
-  const startCorridors = corridorsContaining(fromStop);
-  const endCorridors = corridorsContaining(toStop);
-  if (startCorridors.length === 0 || endCorridors.length === 0) return null;
+  const queue = startLines.map((l) => ({
+    line: l,
+    board: fromStop,
+    segments: [],
+    codes: new Set([l.code]),
+  }));
 
-  // Rute langsung (tanpa transit)
-  for (const c of startCorridors) {
-    if (endCorridors.includes(c)) {
-      return [{ corridor: c, board: fromStop, alight: toStop }];
-    }
-  }
-
-  // BFS antar koridor lewat halte irisan, maksimal 2 transit (3 koridor)
-  const queue = startCorridors.map((c) => ({ path: [c], via: [fromStop] }));
-  const visited = new Set(startCorridors.map((c) => c.code));
-
+  let guard = 0;
   while (queue.length) {
-    const { path, via } = queue.shift();
-    if (path.length > 3) continue;
-    const last = path[path.length - 1];
+    if (++guard > 20000) break; // pengaman, seharusnya tidak pernah tercapai
+    const { line, board, segments, codes } = queue.shift();
+    if (segments.length >= 3) continue; // maksimal 2 transit (3 line)
 
-    for (const next of corridors) {
-      if (path.includes(next)) continue;
-      const junction = sharedStop(last, next);
-      if (!junction) continue;
+    const boardIdx = line.stops.indexOf(board);
 
-      const newPath = [...path, next];
-      const newVia = [...via, junction];
+    // 1) apakah tujuan ada di line ini, di halte setelah boardIdx?
+    const toIdx = line.stops.indexOf(toStop);
+    if (toIdx > boardIdx) {
+      return [...segments, { line, board, alight: toStop }];
+    }
 
-      if (endCorridors.includes(next)) {
-        // bangun segments
-        const segments = [];
-        for (let i = 0; i < newPath.length; i++) {
-          const board = newVia[i];
-          const alight = i === newPath.length - 1 ? toStop : newVia[i + 1];
-          segments.push({ corridor: newPath[i], board, alight });
-        }
-        return segments;
-      }
-
-      if (!visited.has(next.code + newPath.length)) {
-        visited.add(next.code + newPath.length);
-        queue.push({ path: newPath, via: newVia });
+    // 2) kalau belum, coba transit di tiap halte berikutnya pada line ini
+    for (let i = boardIdx + 1; i < line.stops.length; i++) {
+      const s = line.stops[i];
+      const others = linesContaining(s).filter((o) => !codes.has(o.code));
+      for (const other of others) {
+        const newCodes = new Set(codes);
+        newCodes.add(other.code);
+        queue.push({
+          line: other,
+          board: s,
+          segments: [...segments, { line, board, alight: s }],
+          codes: newCodes,
+        });
       }
     }
   }
@@ -236,9 +341,9 @@ function findCorridorPath(fromStop, toStop) {
   return null;
 }
 
-function hopCount(corridor, from, to) {
-  const i = corridor.stops.indexOf(from);
-  const j = corridor.stops.indexOf(to);
+function hopCount(line, from, to) {
+  const i = line.stops.indexOf(from);
+  const j = line.stops.indexOf(to);
   return Math.max(1, Math.abs(j - i));
 }
 
@@ -246,8 +351,8 @@ function roundTo5(n) {
   return Math.round(n / 5) * 5;
 }
 
-function estimateSegmentMinutes(corridor, from, to) {
-  const hops = hopCount(corridor, from, to);
+function estimateSegmentMinutes(line, from, to) {
+  const hops = hopCount(line, from, to);
   const min = Math.max(10, roundTo5(hops * 1.8));
   const max = Math.max(min + 5, roundTo5(hops * 2.8));
   return { min, max };
@@ -256,28 +361,28 @@ function estimateSegmentMinutes(corridor, from, to) {
 function buildTrip(fromLabel, toLabel, fromStop, toStop) {
   if (fromStop === toStop) return null;
 
-  const rawSegments = findCorridorPath(fromStop, toStop);
+  const rawSegments = findLinePath(fromStop, toStop);
   if (!rawSegments) return null;
 
   const segments = rawSegments.map((seg) => {
-    const est = estimateSegmentMinutes(seg.corridor, seg.board, seg.alight);
+    const est = estimateSegmentMinutes(seg.line, seg.board, seg.alight);
     return {
-      code: seg.corridor.code,
-      color: CORRIDOR_COLORS[seg.corridor.code],
-      icon: CORRIDOR_ICONS[seg.corridor.code],
-      route: seg.corridor.name,
+      code: seg.line.code,
+      color: seg.line.color,
+      icon: seg.line.icon,
+      route: seg.line.label,
       boarding: seg.board,
       stop: seg.alight,
       minMinutes: est.min,
       maxMinutes: est.max,
-      passedStops: seg.corridor.stops.slice(
-        Math.min(seg.corridor.stops.indexOf(seg.board), seg.corridor.stops.indexOf(seg.alight)),
-        Math.max(seg.corridor.stops.indexOf(seg.board), seg.corridor.stops.indexOf(seg.alight)) + 1
+      passedStops: seg.line.stops.slice(
+        Math.min(seg.line.stops.indexOf(seg.board), seg.line.stops.indexOf(seg.alight)),
+        Math.max(seg.line.stops.indexOf(seg.board), seg.line.stops.indexOf(seg.alight)) + 1
       ).sort((a, b) => {
-        const boardIsFirst = seg.corridor.stops.indexOf(seg.board) <= seg.corridor.stops.indexOf(seg.alight);
+        const boardIsFirst = seg.line.stops.indexOf(seg.board) <= seg.line.stops.indexOf(seg.alight);
         return boardIsFirst
-          ? seg.corridor.stops.indexOf(a) - seg.corridor.stops.indexOf(b)
-          : seg.corridor.stops.indexOf(b) - seg.corridor.stops.indexOf(a);
+          ? seg.line.stops.indexOf(a) - seg.line.stops.indexOf(b)
+          : seg.line.stops.indexOf(b) - seg.line.stops.indexOf(a);
       }),
     };
   });
@@ -311,7 +416,7 @@ function buildTrip(fromLabel, toLabel, fromStop, toStop) {
 }
 
 /* =========================================================
-   Rendering
+   Rendering — form & hasil estimasi
    ========================================================= */
 
 const fromSelect = document.getElementById("from-select");
@@ -330,8 +435,8 @@ function populateSelect(selectEl) {
 
 populateSelect(fromSelect);
 populateSelect(toSelect);
-fromSelect.value = "Buah Batu";
-toSelect.value = "Baltos";
+fromSelect.value = "Baleendah";
+toSelect.value = "Jatinangor";
 
 document.getElementById("swap-btn").addEventListener("click", () => {
   const a = fromSelect.value;
@@ -526,14 +631,14 @@ function renderDuration(trip) {
 }
 
 /* =========================================================
-   Peta Semua Rute + Pencarian Landmark
+   Peta Semua Rute (kedua arah, semua halte) + Pencarian Landmark
    ========================================================= */
 
 function renderCorridorList() {
   const el = document.getElementById("corridor-list");
   el.innerHTML = "";
 
-  corridors.forEach((c) => {
+  corridorDefs.forEach((c) => {
     const details = document.createElement("details");
     details.className = "corridor-item";
 
@@ -541,14 +646,17 @@ function renderCorridorList() {
     summary.style.background = CORRIDOR_COLORS[c.code];
     summary.innerHTML = `
       <span>${CORRIDOR_ICONS[c.code]} ${c.code}</span>
-      <span class="cd-name">${c.name}</span>
+      <span class="cd-name">${c.corridorName}</span>
       <span class="cd-caret">▾</span>
     `;
     details.appendChild(summary);
 
     const stopsDiv = document.createElement("div");
     stopsDiv.className = "corridor-stops";
-    stopsDiv.innerHTML = c.stops.map((s) => `<div class="cs-item">${s}</div>`).join("");
+    c.directions.forEach((d) => {
+      stopsDiv.innerHTML += `<div class="cs-dir-label">↳ Arah ${d.label}</div>`;
+      stopsDiv.innerHTML += d.stops.map((s) => `<div class="cs-item">${s}</div>`).join("");
+    });
     details.appendChild(stopsDiv);
 
     el.appendChild(details);
@@ -574,8 +682,8 @@ function searchLandmark(query) {
     }
   });
 
-  // 2) lalu cocokkan langsung ke nama halte pada semua koridor
-  const allStops = [...new Set(corridors.flatMap((c) => c.stops))];
+  // 2) lalu cocokkan langsung ke semua nama halte pada semua koridor & arah
+  const allStops = [...new Set(lines.flatMap((l) => l.stops))];
   allStops.forEach((stop) => {
     if (stop.toLowerCase().includes(q) && !seenStops.has(stop)) {
       seenStops.add(stop);
@@ -589,14 +697,14 @@ function searchLandmark(query) {
   }
 
   matches.slice(0, 6).forEach((m) => {
-    const servingCorridors = corridorsContaining(m.stop);
-    servingCorridors.forEach((c) => {
+    const servingLines = linesContaining(m.stop);
+    servingLines.forEach((l) => {
       const div = document.createElement("div");
       div.className = "landmark-match";
       div.innerHTML = `
-        <span class="lm-badge" style="background:${CORRIDOR_COLORS[c.code]}">${c.code}</span>
+        <span class="lm-badge" style="background:${l.color}">${l.code}</span>
         <span class="lm-text">
-          Naik di halte <span class="lm-stop">${m.stop}</span> (${c.name})
+          Naik di halte <span class="lm-stop">${m.stop}</span> — arah ${l.label}
           ${m.note ? `<span class="lm-note">${m.note}</span>` : ""}
         </span>
       `;
