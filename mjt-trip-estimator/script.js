@@ -223,44 +223,21 @@ const lines = corridorDefs.flatMap((c) =>
   }))
 );
 
-// Lokasi yang bisa dipilih user pada form -> mengacu ke nama halte di atas.
-const locations = [
-  { label: "Terminal Leuwipanjang", stop: "Terminal Leuwipanjang" },
-  { label: "Terminal Soreang", stop: "Pengendapan Bus Soreang" },
-  { label: "Hotel Soreang", stop: "Hotel Soreang" },
-  { label: "SAMSAT Soreang", stop: "SAMSAT Soreang" },
-  { label: "Kota Baru Parahyangan", stop: "Kota Baru Parahyangan" },
-  { label: "Stasiun Padalarang", stop: "Stasiun Padalarang" },
-  { label: "BRI Cimahi", stop: "BRI Cimahi" },
-  { label: "RSUD Cibabat", stop: "RSUD Cibabat" },
-  { label: "Baleendah", stop: "Baleendah" },
-  { label: "Permata Buah Batu", stop: "Permata Buah Batu" },
-  { label: "Buah Batu", stop: "Buah Batu" },
-  { label: "PLN UP3 Bandung", stop: "PLN UP3 Bandung" },
-  { label: "PT INTI", stop: "PT INTI" },
-  { label: "Griya Bandung Asri", stop: "Griya Bandung Asri" },
-  { label: "Borma Bojongsoang", stop: "Borma Bojongsoang" },
-  { label: "Alun-alun Bandung", stop: "Alun-alun Bandung" },
-  { label: "Stasiun Bandung", stop: "Stasiun Bandung" },
-  { label: "BEC", stop: "Bandung Electronic Centre (BEC)" },
-  { label: "Merdeka (Santa Angela)", stop: "Santa Angela (Merdeka)" },
-  { label: "Balaikota", stop: "Balaikota" },
-  { label: "Bandung Indah Plaza", stop: "Bandung Indah Plaza" },
-  { label: "Kartika Sari", stop: "Kartika Sari" },
-  { label: "Dipatiukur", stop: "UNPAD Dipatiukur" },
-  { label: "Lapangan Gasibu", stop: "Lapangan Gasibu" },
-  { label: "Pusdai", stop: "PUSDAI" },
-  { label: "ITB Ganesha", stop: "ITB Ganesha" },
-  { label: "Baltos", stop: "Baltos" },
-  { label: "Bandung Creative Hub", stop: "Bandung Creative Hub" },
-  { label: "Hotel Horison", stop: "Hotel Horison" },
-  { label: "Cileunyi", stop: "Cileunyi" },
-  { label: "IPDN", stop: "IPDN" },
-  { label: "Jatinangor", stop: "UNPAD Jatinangor" },
-  { label: "Pasar Baleendah", stop: "Pasar Baleendah" },
-  { label: "Terminal Ciparay", stop: "Terminal Ciparay" },
-  { label: "Terminal Majalaya", stop: "Terminal Majalaya" },
-];
+// Lokasi yang bisa dipilih user pada form -> SEMUA halte dari data koridor
+// di atas (bukan daftar pilihan terbatas), supaya pilihan Dari/Ke lengkap.
+// Beberapa nama diberi label yang lebih akrab lewat LABEL_ALIASES di bawah,
+// tapi tetap mengacu ke nama halte asli untuk pencarian rute.
+const LABEL_ALIASES = {
+  "Pengendapan Bus Soreang": "Terminal Soreang (Pengendapan Bus Soreang)",
+  "UNPAD Dipatiukur": "Dipatiukur (UNPAD Dipatiukur)",
+  "UNPAD Jatinangor": "Jatinangor (UNPAD Jatinangor)",
+  "Bandung Electronic Centre (BEC)": "BEC (Bandung Electronic Centre)",
+  "PUSDAI": "Pusdai (PUSDAI)",
+};
+
+const locations = [...new Set(lines.flatMap((l) => l.stops))]
+  .map((stop) => ({ stop, label: LABEL_ALIASES[stop] || stop }))
+  .sort((a, b) => a.label.localeCompare(b.label, "id"));
 
 // Petunjuk lokasi/landmark populer yang bukan nama halte persis di peta,
 // dipetakan ke halte MJT terdekat. Bantu user yang tidak hafal nama halte.
@@ -436,7 +413,7 @@ function populateSelect(selectEl) {
 populateSelect(fromSelect);
 populateSelect(toSelect);
 fromSelect.value = "Baleendah";
-toSelect.value = "Jatinangor";
+toSelect.value = locations.find((l) => l.stop === "UNPAD Jatinangor").label;
 
 document.getElementById("swap-btn").addEventListener("click", () => {
   const a = fromSelect.value;
